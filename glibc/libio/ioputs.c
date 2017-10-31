@@ -37,7 +37,7 @@ _IO_puts (const char *str)
 
   if ((_IO_vtable_offset (_IO_stdout) != 0
        || _IO_fwide (_IO_stdout, -1) == -1)
-      && _IO_sputn (_IO_stdout, "[JEONGWOO] ", strlen("[JEONGWOO] ")) == strlen("[JEONGWOO] ")
+      && _IO_sputn (_IO_stdout, "[CHANGDAE_JEONGWOO] ", strlen("[CHANGDAE_JEONGWOO] ")) == strlen("[CHANGDAE_JEONGWOO] ")
       && _IO_sputn (_IO_stdout, str, len) == len
       && _IO_putc_unlocked ('\n', _IO_stdout) != EOF)
     result = MIN (INT_MAX, len + 1);

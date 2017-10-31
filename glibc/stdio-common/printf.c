@@ -29,7 +29,7 @@ __printf (const char *format, ...)
 {
   va_list arg;
   int done;
-  const char* name = "[JEONGWOO] ";
+  const char* name = "[CHANGDAE_JEONGWOO] ";
 
   vfprintf (stdout, name, NULL);
 
