@@ -9,13 +9,13 @@
 
 #include <time.h>
 
-#define MQ1_KEY 5000	// PID 1의 메시지 큐
-#define MQ2_KEY 5001	// PID 2의 메시지 큐
-#define MQ3_KEY 5002	// PID 3의 메시지 큐
+#define MQ1_KEY 5000	// PID 1의 메시지 큐의 키 값
+#define MQ2_KEY 5001	// PID 2의 메시지 큐의 키 값
+#define MQ3_KEY 5002	// PID 3의 메시지 큐의 키 값
 #define SHARED_KEY 6000 // 공유 메모리의 키 값
 
 typedef struct {
-	long mtype;			// 목적지 클라이언트의 ID값. Broadcast시 255.
+	long mtype;			// 목적지 클라이언트의 ID값.
 	char mtext[1024]; 	// 데이터
 } ChatMsg;
 
@@ -28,35 +28,38 @@ int main() {
 	ChatMsg msg;
 	const int msg_size = sizeof(msg) - sizeof(msg.mtype);
 	ssize_t rcv_bytes;
+	
+	int dest;
 
-	printf("**CHAT_SERVER**\n");
+	printf("** CHAT_SERVER **\n");
 	
 	while(1) {
 		
 		for(int i = 0; i < 3; i++) {
-			rcv_bytes = msgrcv(que_id[i], &msg, msg_size, 0, IPC_NOWAIT);
+			// Case 1: Broadcast
+			rcv_bytes = msgrcv(que_id[i], &msg, msg_size, 255, IPC_NOWAIT);
 			if(rcv_bytes > 0) {
-				// Case: Broadcast
-				if(msg.mtype == 255) {
-					printf("Broadcast.\n");
-				}
-		
-				// Case: Private message
-				else if(1 <= msg.mtype && msg.mtype <= 3) {
-					printf("Private. PID%d->PID%d\n", i+1, msg.mtype);
-
-					int dest = msg.mtype - 1;
-					msg.mtype = 11 + i;
-					printf("destination: %d, mtype: %d\n", dest + 1, msg.mtype);
-					printf("que_id[dest] = %d\n", que_id[dest]);
+				printf("[PID %d -> Broadcast] %s\n", i + 1, msg.mtext);
+				
+				/*
+				 * 이 부분에 Shared Memory를 활용해서 채팅 데이터를 저장해야합니다.
+				 *
+				 */
+				
+			}
+			
+			// Case 2: PID i to PID 1, 2, 3
+			for(int j = 1; j <= 3; j++) {
+				rcv_bytes = msgrcv(que_id[i], &msg, msg_size, 10 + j, IPC_NOWAIT);
+				if(rcv_bytes > 0) {
+					printf("[PID %d -> PID %d] %s\n", i + 1, j, msg.mtext);
+				
+					dest = (msg.mtype - 10) - 1;
+					msg.mtype = i + 1;
+					msg.mtext[0] = '#';
 					if(msgsnd(que_id[dest], &msg, msg_size, IPC_NOWAIT) != 0) {
 						printf("ERROR: message send failed.\n");
 					}
-
-				}
-			
-				else {
-					continue;
 				}
 			}
 		}
