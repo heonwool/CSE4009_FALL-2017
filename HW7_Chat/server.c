@@ -44,14 +44,15 @@ int main() {
 				// Case: Private message
 				else if(1 <= msg.mtype && msg.mtype <= 3) {
 					printf("Private. PID%d->PID%d\n", i+1, msg.mtype);
-					
-					/////// ERROR BELOW
+
 					int dest = msg.mtype - 1;
-					msg.mtype = i + 1;
+					msg.mtype = 11 + i;
+					printf("destination: %d, mtype: %d\n", dest + 1, msg.mtype);
+					printf("que_id[dest] = %d\n", que_id[dest]);
 					if(msgsnd(que_id[dest], &msg, msg_size, IPC_NOWAIT) != 0) {
 						printf("ERROR: message send failed.\n");
 					}
-					/////// ERROR END
+
 				}
 			
 				else {

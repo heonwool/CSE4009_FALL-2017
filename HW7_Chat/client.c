@@ -11,6 +11,10 @@
 #define MSGQ_KEY 5000	// 메시지 큐의 키 값
 #define SHARED_KEY 6000 // 공유 메모리의 키 값
 
+#define FROM_PID1 11
+#define FROM_PID2 12	// 전송받을 메시지의 타입 
+#define FROM_PID3 13
+
 typedef struct {
 	long mtype;			// 목적지 클라이언트의 ID값. Broadcast시 255.
 	char mtext[1024]; 	// 데이터
@@ -23,11 +27,13 @@ int main() {
 	ChatMsg msg;
 	const int msg_size = sizeof(msg) - sizeof(msg.mtype);
 
-	int send_result;
+	int send_result, ret;
 	char user_input;
+
+	ssize_t rcv_bytes;
 	
 	printf("**CHAT_CLIENT**\n");
-	printf("CURRENT ID: %d\n\n", PID);
+	printf("CURRENT ID: %d / QUEUE ID: %d\n\n", PID, que_id);
 	printf("USAGE: \n");
 	printf("  SEND: s <DEST_ID> <MESSAGE>\n");
 	printf("  RECEIVE: r\n");
@@ -55,9 +61,13 @@ int main() {
 		// 쪽지 읽기
 		case 'R':
 		case 'r':
-			while(msgrcv(que_id, &msg, msg_size, 0, IPC_NOWAIT) > 0) {
-				printf("[PID %d] %s\n", msg.mtype, msg.mtext);
+			rcv_bytes = msgrcv(que_id, &msg, msg_size, 11, IPC_NOWAIT);
+			if(rcv_bytes > 0) {
+				printf("[PID %d] %s\n", 11 - 10, msg.mtext);
 			}
+			else
+				printf("error_no %d\n", errno);
+
 			break;
 
 	/*
