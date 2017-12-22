@@ -57,8 +57,8 @@ int main() {
 
 	ssize_t rcv_bytes;
 	
-	printf("** CHAT_CLIENT (ID: %d) **\n\n", PID);
-	printf("Try 'h' for details.\n");
+	printf("** CHAT_CLIENT (ID: %d) **\n", PID);
+	printf("Try 'h' for more details.\n");
 	
 	printf("> ");
 	while(1) {
@@ -70,7 +70,7 @@ int main() {
 		case 'S':
 		case 's':
 			scanf("%ld", &destination);
-			scanf("%s", &msg.mtext);
+			scanf("%[^\n]s", &msg.mtext);
 			
 			if(destination != 255)
 				msg.mtype = 10 + destination;
