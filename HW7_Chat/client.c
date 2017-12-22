@@ -7,108 +7,158 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 
-#define PID 1	// 현재 프로세스의 PID
-#define MSGQ_KEY 5000	// 메시지 큐의 키 값
+#include <time.h>
+
+#define MQ_KEY 9000	// PID 1의 메시지 큐의 키 값
 #define SHARED_KEY 6000 // 공유 메모리의 키 값
 
-/* mtype 설명.
- * 1. 개인 메시지
- *   1) 클라이언트에서 서버로 데이터를 전송할 때는 11, 12, 13을 이용한다. 
- *      각 숫자는 목적지 클라이언트를 의미하며, 11은 1번 클라이언트, 12번은 2번 클라이언트,
- *      13번은 3번 클라이언트를 의미한다.
- *   2) 서버에서 클라이언트로 데이터를 전송할 때는 1, 2, 3을 이용한다.
- *      각 숫자는 출발지 클라이언트를 의미하며, 1은 1번 클라이언트, 2는 2번 클라이언트, 
- *      3번은 3번 클라이언트를 의미한다.
- * 2. 전체 메시지 
- *   1) 클라이언트가 전체 메시지를 작성할 때는 255를 이용한다.
+/* mtype = 1: Broadcast
+ * mtype = PID * 2: Client -> Server
+ * mtype = PID: Server -> Client
+ *
+ *
  */
+ 
+long max_pid = -1;
+long pid_list[3];
 
 typedef struct {
-	long mtype;			// 메시지 타입
+	long mtype;			// 목적지 클라이언트의 ID값.
 	char mtext[1024]; 	// 데이터
 } ChatMsg;
 
-void print_man() {
-	printf("The usage is as follows.\n\n");
-	
-	printf("1. Message transmission\n");
-	printf("Send a message. Use the 'S' option. If you enter 255 for the destination client's ID, it will be created as a full message.\n");
-	printf("Usage example: s <DEST_ID> <MESSAGE>\n\n");
-	
-	printf("2. Receive message\n");
-	printf("Receive messages sent between clients. Use the 'R' option.\n");
-	printf("Usage example: r\n\n");
-	
-	printf("3. Full message browsing\n");
-	printf("View chat window. Use the 'V' option.\n");
-	printf("Usage example: v\n");
+typedef struct client {
+	int qid;
+	int pid;
+} ClientType;
+
+void usage() {
+	printf("Enter any of the following commands after the prompt > :\n"
+	"    s <DEST_PID> <TEXT>  -- Send <TEXT> to <DEST_PID>. To broadcast\n"
+	"    the message, <DEST_PID> must be 0.\n"
+	"    r -- Receive private message between clients.\n"
+	"    v -- Print Chat-log from Shared Memory.\n"
+	"    h -- Print this help message.\n"
+	"    q -- Quit.\n\n");
 }
 
-int main() {
-	key_t que_key = MSGQ_KEY;
-	int que_id = msgget(que_key, IPC_CREAT|0666);
-	
+int init_connection(ClientType * c) {
+	printf("Waiting for other clients...\n");
+
 	ChatMsg msg;
 	const int msg_size = sizeof(msg) - sizeof(msg.mtype);
 
-	int send_result, ret;
-	long destination;
-	char user_input;
+	int ret, init_count = 0;
+	ssize_t nbytes;
 
-	ssize_t rcv_bytes;
+	msg.mtype = c->pid;
+	ret = msgsnd(c->qid, &msg, msg_size, IPC_NOWAIT);
 	
-	printf("** CHAT_CLIENT (ID: %d) **\n", PID);
-	printf("Try 'h' for more details.\n");
+	if(ret != 0) return -1;
+	
+	printf("Client PID List: ");
+	while(init_count < 3) {
+		nbytes = msgrcv(c->qid, &msg, msg_size, 0, IPC_NOWAIT);
+		if(nbytes > 0) {
+			pid_list[init_count] = msg.mtype;
+			if(msg.mtype > max_pid) max_pid = msg.mtype;
+			
+			printf("%ld ", msg.mtype);
+			init_count++;
+		}
+	}
+	printf("\n");
+	printf("Connection between clients and server established.\n");
+	
+	return 0;
+}
+
+int send_message(int qid) {
+	ChatMsg msg;
+	const int msg_size = sizeof(msg) - sizeof(msg.mtype);
+	
+	long dest;
+
+	scanf("%ld", &dest);
+	scanf("%[^\n]s", &msg.mtext);
+	
+	if(dest == 0) msg.mtype = 1;
+	else if(dest == pid_list[0] || dest == pid_list[1] || dest == pid_list[2]) msg.mtype = dest * 2;
+	else return -100;
+	
+	return msgsnd(qid, &msg, msg_size, IPC_NOWAIT);
+}
+
+int receive_message(int qid) {
+	ChatMsg msg;
+	const int msg_size = sizeof(msg) - sizeof(msg.mtype);
+	ssize_t nbytes;
+	
+	while(1) {
+		nbytes = msgrcv(qid, &msg, msg_size, 0, IPC_NOWAIT);
+		if(nbytes > 0) {
+			printf("[%ld] %s\n", msg.mtype, msg.mtext);
+		}
+		else {
+			break;
+		}
+	}
+
+	return 0;
+}
+
+int main() {
+	ClientType client;
+	char user_input;
+	int ret;
+
+	client.qid = msgget((key_t) MQ_KEY, IPC_CREAT|0666);
+	client.pid = getpid();
+	
+	printf("CHAT CLIENT (PID: %d, QID: %d)\n", client.pid, client.qid);
+	usage();
+
+	init_connection(&client);
 	
 	printf("> ");
 	while(1) {
 		scanf("%c", &user_input);
-
+		
 		switch(user_input) {
 		
 		// 메시지 전송
 		case 'S':
 		case 's':
-			scanf("%ld", &destination);
-			scanf("%[^\n]s", &msg.mtext);
-			
-			if(destination != 255)
-				msg.mtype = 10 + destination;
-			
-			else
-				msg.mtype = 255;
-			
-			if(msgsnd(que_id, &msg, msg_size, IPC_NOWAIT) != 0) {
-				printf("ERROR: message send failed.\n");
+			if(send_message(client.qid) != 0) {
+				printf("ERROR: send_message failed.\n");
 			}
-			
 			break;
 
 		// 쪽지 읽기
 		case 'R':
 		case 'r':
-			rcv_bytes = msgrcv(que_id, &msg, msg_size, -4, IPC_NOWAIT);
-			if(rcv_bytes > 0) {
-				printf("[PID %ld] %s\n", msg.mtype, msg.mtext);
+			ret = receive_message(client.qid);
+			if(ret == -100) {
+				printf("ERROR: PID does not exist.\n");
 			}
-			else
-				printf("error_no %d\n", errno);
-
+			
+			else if(ret != 0) {
+				printf("ERROR: receive_message failed.\n");
+			}
+			
 			break;
 
 		// 전체 메시지 보기			
 		case 'V':
 		case 'v':
-			/*
-			 * 이 부분에 Shared Memory를 활용해서 채팅 데이터를 읽어야합니다.
-			 *
-			 */
+
+			// 이 부분에 Shared Memory를 활용해서 채팅 데이터를 읽어야합니다.
+			 
 			break;
-			
+
 		case 'H':
 		case 'h':
-			print_man();
-			break;
+			usage();
 	
 		case 'Q':
 		case 'q':
@@ -124,3 +174,4 @@ int main() {
 	
 	return 0;
 }
+
