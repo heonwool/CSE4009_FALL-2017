@@ -151,6 +151,10 @@ int check_message(ClientType c[3]) {
 				msg.mtype = util_getpid(c, c[i].qid);
 				
 				ret = msgsnd(dest_qid, &msg, msg_size, IPC_NOWAIT);
+				if(ret != 0) {
+					printf("[PID %ld] : %s\n", msg.mtype, msg.mtext);
+					ret = save_public_chat(msg.mtext, msg.mtype);
+				}
 			}
 		}
 	}
