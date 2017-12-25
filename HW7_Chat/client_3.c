@@ -10,7 +10,7 @@
 
 #include <time.h>
 
-#define MQ_KEY 9000	// Client 0의 메시지 큐의 키 값
+#define MQ_KEY 9002	// Client 2의 메시지 큐의 키 값
 #define SHARED_KEY 6000 // 공유 메모리의 키 값
 
 /* mtype = 1: Broadcast
